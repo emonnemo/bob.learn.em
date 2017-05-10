@@ -57,6 +57,10 @@ data is the closest as well as the min distance.
    (0, 6.0)
 
 
+
+
+
+
 Gaussian machines
 =================
 
@@ -437,6 +441,13 @@ be called.
     [  3.5 -3.5   99. ]]
 
 
+Example Kmeans.
+
+.. plot:: plot/plot_kmeans.py
+   :include-source: False
+
+
+
 Maximum likelihood for Gaussian mixture model
 =============================================
 
@@ -467,6 +478,13 @@ and the criterion used to determine if the parameters have converged.
    >>> trainer = bob.learn.em.ML_GMMTrainer(True, True, True) # update means/variances/weights at each iteration
    >>> bob.learn.em.train(trainer, gmm, data, max_iterations = 200, convergence_threshold = 1e-5)
    >>> print(gmm) # doctest: +SKIP
+
+
+Example of ML.
+
+.. plot:: plot/plot_ML.py
+   :include-source: False
+
 
 
 MAP-adaptation for Gaussian mixture model
@@ -646,6 +664,13 @@ estimate the class-specific latent variable :math:`z`:
    >>> isv_trainer.enroll(m, gse, 5) # where 5 is the number of iterations
 
 More information about the training process can be found in [14]_ and [13]_.
+
+
+Example
+
+.. plot:: plot/plot_ISV.py
+   :include-source: False
+
 
 
 Total Variability (i-vectors)
