@@ -34,30 +34,46 @@ def train_ubm(features, n_gaussians):
     return ubm
 
 
-def isv_train(features, ubm):
+def ivector_train(features, ubm):
     """
     Features com lista de listas [  [data_point_1_user_1,data_point_2_user_1], [data_point_1_user_2,data_point_2_user_2]  ] 
     """
 
     stats = []
     for user in features:
-        user_stats = []
         for f in user:
             s = bob.learn.em.GMMStats(ubm.shape[0], ubm.shape[1])
             ubm.acc_statistics(f, s)
-            user_stats.append(s)
-        stats.append(user_stats)
+            stats.append(s)
 
-    relevance_factor = 4
-    subspace_dimension_of_u = 1
+    subspace_dimension_of_t = 2
 
-    isvbase = bob.learn.em.ISVBase(ubm, subspace_dimension_of_u)
-    trainer = bob.learn.em.ISVTrainer(relevance_factor)
-    # trainer.rng = bob.core.random.mt19937(int(self.init_seed))
-    bob.learn.em.train(trainer, isvbase, stats, max_iterations=50)
+    ivector_trainer = bob.learn.em.IVectorTrainer(update_sigma=True)
+    ivector_machine = bob.learn.em.IVectorMachine(ubm, subspace_dimension_of_t, 10e-5)
 
-    return isvbase
+    # train IVector model
+    bob.learn.em.train(ivector_trainer, ivector_machine, stats, 500)
 
+    return ivector_machine
+
+
+def acc_stats(data, gmm):
+    gmm_stats = []
+    for d in data:
+        s = bob.learn.em.GMMStats(gmm.shape[0], gmm.shape[1])
+        gmm.acc_statistics(d, s)
+        gmm_stats.append(s)
+
+    return gmm_stats
+
+
+def compute_ivectors(gmm_stats, ivector_machine):
+
+    ivectors = []
+    for g in gmm_stats:
+        ivectors.append(ivector_machine(g))
+
+    return numpy.array(ivectors)
 
 ### GENERATING DATA
 data_per_class = bob.db.iris.data()
@@ -68,33 +84,43 @@ data = numpy.vstack((setosa, versicolor, virginica))
 
 # TRAINING THE PRIOR
 ubm = train_ubm(data, 3)
-isvbase = isv_train([setosa, versicolor, virginica], ubm)
+ivector_machine = ivector_train([setosa, versicolor, virginica], ubm)
 
-# Variability direction
-u0 = isvbase.u[0:2, 0] / numpy.linalg.norm(isvbase.u[0:2, 0])
-u1 = isvbase.u[2:4, 0] / numpy.linalg.norm(isvbase.u[2:4, 0])
-u2 = isvbase.u[4:6, 0] / numpy.linalg.norm(isvbase.u[4:6, 0])
+##  Variability direction U
+#t0 = T[0:2, 0] / numpy.linalg.norm(T[0:2, 0])
+#t1 = T[2:4, 0] / numpy.linalg.norm(T[2:4, 0])
+#t2 = T[4:6, 0] / numpy.linalg.norm(T[4:6, 0])
 
-figure, ax = plt.subplots()
+
+#figure, ax = plt.subplots()
+plt.subplot(2, 1, 1)
 plt.scatter(setosa[:, 0], setosa[:, 1], c="darkcyan", label="setosa")
 plt.scatter(versicolor[:, 0], versicolor[:, 1], c="goldenrod", label="versicolor")
 plt.scatter(virginica[:, 0], virginica[:, 1], c="dimgrey", label="virginica")
+# plt.grid(True)
+plt.xlabel('Sepal length')
+plt.ylabel('Petal width')
+plt.legend(loc=2)
+plt.ylim([-1, 3.5])
 
-plt.scatter(ubm.means[:, 0], ubm.means[:, 1], c="blue", marker="x", label="centroids - mle")
-#plt.scatter(ubm.means[:, 0], ubm.means[:, 1], c="blue", marker=".", label="within class varibility", s=0.01)
 
-ax.arrow(ubm.means[0, 0], ubm.means[0, 1], u0[0], u0[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
-ax.arrow(ubm.means[1, 0], ubm.means[1, 1], u1[0], u1[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
-ax.arrow(ubm.means[2, 0], ubm.means[2, 1], u2[0], u2[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
-plt.text(ubm.means[0, 0] + u0[0], ubm.means[0, 1] + u0[1] - 0.1, r'$\mathbf{U}_1$', fontsize=15)
-plt.text(ubm.means[1, 0] + u1[0], ubm.means[1, 1] + u1[1] - 0.1, r'$\mathbf{U}_2$', fontsize=15)
-plt.text(ubm.means[2, 0] + u2[0], ubm.means[2, 1] + u2[1] - 0.1, r'$\mathbf{U}_3$', fontsize=15)
+plt.subplot(2, 1, 2)
+ivector_setosa = compute_ivectors(acc_stats(setosa, ubm), ivector_machine)
+ivector_versicolor = compute_ivectors(acc_stats(versicolor, ubm), ivector_machine)
+ivector_virginica = compute_ivectors(acc_stats(virginica, ubm), ivector_machine)
 
-ax.set_xticklabels("" for item in ax.get_xticklabels())
-ax.set_yticklabels("" for item in ax.get_yticklabels())
+
+plt.scatter(ivector_setosa[:, 0], ivector_setosa[:, 1], c="darkcyan", label="setosa", marker="x")
+plt.scatter(ivector_versicolor[:, 0], ivector_versicolor[:, 1], c="goldenrod", label="versicolor", marker="x")
+plt.scatter(ivector_virginica[:, 0], ivector_virginica[:, 1], c="dimgrey", label="virginica", marker="x")
+
+#ax.set_xticklabels("" for item in ax.get_xticklabels())
+#ax.set_yticklabels("" for item in ax.get_yticklabels())
 
 # plt.grid(True)
 plt.xlabel('Sepal length')
 plt.ylabel('Petal width')
-plt.legend()
+plt.legend(loc=2)
+plt.ylim([-1, 3.5])
+
 plt.show()

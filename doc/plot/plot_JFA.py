@@ -34,7 +34,7 @@ def train_ubm(features, n_gaussians):
     return ubm
 
 
-def isv_train(features, ubm):
+def jfa_train(features, ubm):
     """
     Features com lista de listas [  [data_point_1_user_1,data_point_2_user_1], [data_point_1_user_2,data_point_2_user_2]  ] 
     """
@@ -48,15 +48,15 @@ def isv_train(features, ubm):
             user_stats.append(s)
         stats.append(user_stats)
 
-    relevance_factor = 4
     subspace_dimension_of_u = 1
+    subspace_dimension_of_v = 1
 
-    isvbase = bob.learn.em.ISVBase(ubm, subspace_dimension_of_u)
-    trainer = bob.learn.em.ISVTrainer(relevance_factor)
+    jfa_base = bob.learn.em.JFABase(ubm, subspace_dimension_of_u, subspace_dimension_of_v)
+    trainer = bob.learn.em.JFATrainer()
     # trainer.rng = bob.core.random.mt19937(int(self.init_seed))
-    bob.learn.em.train(trainer, isvbase, stats, max_iterations=50)
+    bob.learn.em.train_jfa(trainer, jfa_base, stats, max_iterations=50)
 
-    return isvbase
+    return jfa_base
 
 
 ### GENERATING DATA
@@ -68,12 +68,20 @@ data = numpy.vstack((setosa, versicolor, virginica))
 
 # TRAINING THE PRIOR
 ubm = train_ubm(data, 3)
-isvbase = isv_train([setosa, versicolor, virginica], ubm)
+jfa_base = jfa_train([setosa, versicolor, virginica], ubm)
 
-# Variability direction
-u0 = isvbase.u[0:2, 0] / numpy.linalg.norm(isvbase.u[0:2, 0])
-u1 = isvbase.u[2:4, 0] / numpy.linalg.norm(isvbase.u[2:4, 0])
-u2 = isvbase.u[4:6, 0] / numpy.linalg.norm(isvbase.u[4:6, 0])
+# Variability direction U
+u0 = jfa_base.u[0:2, 0] / numpy.linalg.norm(jfa_base.u[0:2, 0])
+u1 = jfa_base.u[2:4, 0] / numpy.linalg.norm(jfa_base.u[2:4, 0])
+u2 = jfa_base.u[4:6, 0] / numpy.linalg.norm(jfa_base.u[4:6, 0])
+
+
+# Variability direction V
+v0 = jfa_base.v[0:2, 0] / numpy.linalg.norm(jfa_base.v[0:2, 0])
+v1 = jfa_base.v[2:4, 0] / numpy.linalg.norm(jfa_base.v[2:4, 0])
+v2 = jfa_base.v[4:6, 0] / numpy.linalg.norm(jfa_base.v[4:6, 0])
+
+
 
 figure, ax = plt.subplots()
 plt.scatter(setosa[:, 0], setosa[:, 1], c="darkcyan", label="setosa")
@@ -83,6 +91,7 @@ plt.scatter(virginica[:, 0], virginica[:, 1], c="dimgrey", label="virginica")
 plt.scatter(ubm.means[:, 0], ubm.means[:, 1], c="blue", marker="x", label="centroids - mle")
 #plt.scatter(ubm.means[:, 0], ubm.means[:, 1], c="blue", marker=".", label="within class varibility", s=0.01)
 
+# U
 ax.arrow(ubm.means[0, 0], ubm.means[0, 1], u0[0], u0[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
 ax.arrow(ubm.means[1, 0], ubm.means[1, 1], u1[0], u1[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
 ax.arrow(ubm.means[2, 0], ubm.means[2, 1], u2[0], u2[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
@@ -90,11 +99,21 @@ plt.text(ubm.means[0, 0] + u0[0], ubm.means[0, 1] + u0[1] - 0.1, r'$\mathbf{U}_1
 plt.text(ubm.means[1, 0] + u1[0], ubm.means[1, 1] + u1[1] - 0.1, r'$\mathbf{U}_2$', fontsize=15)
 plt.text(ubm.means[2, 0] + u2[0], ubm.means[2, 1] + u2[1] - 0.1, r'$\mathbf{U}_3$', fontsize=15)
 
+# V
+ax.arrow(ubm.means[0, 0], ubm.means[0, 1], v0[0], v0[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
+ax.arrow(ubm.means[1, 0], ubm.means[1, 1], v1[0], v1[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
+ax.arrow(ubm.means[2, 0], ubm.means[2, 1], v2[0], v2[1], fc="k", ec="k", head_width=0.05, head_length=0.1)
+plt.text(ubm.means[0, 0] + v0[0], ubm.means[0, 1] + v0[1] - 0.1, r'$\mathbf{V}_1$', fontsize=15)
+plt.text(ubm.means[1, 0] + v1[0], ubm.means[1, 1] + v1[1] - 0.1, r'$\mathbf{V}_2$', fontsize=15)
+plt.text(ubm.means[2, 0] + v2[0], ubm.means[2, 1] + v2[1] - 0.1, r'$\mathbf{V}_3$', fontsize=15)
+
 ax.set_xticklabels("" for item in ax.get_xticklabels())
 ax.set_yticklabels("" for item in ax.get_yticklabels())
 
 # plt.grid(True)
 plt.xlabel('Sepal length')
 plt.ylabel('Petal width')
-plt.legend()
-plt.show()
+plt.legend(loc=2)
+plt.ylim([-1, 3.5])
+
+#plt.show()
